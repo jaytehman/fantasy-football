@@ -182,11 +182,19 @@ AvgDraftPos <- AvgDraftPos %>%
 cbsproj <- cbsproj %>% 
   left_join(AvgDraftPos) %>%
   mutate(DraftToPointsRatio = (FantasyPoints)/((Avg.Pos))) %>%
+  mutate(DraftToPointsRatio2 = (FantasyPoints)/((172-Avg.Pos))) %>%
+  mutate(ValFunct = (FantasyPoints)/((172-Avg.Pos)^2)) %>% 
   mutate(Log = log(DraftToPointsRatio)) %>% 
   write_rds("cbsproj.rds") %>%
   glimpse()
 
+#if I'm correct, the higher the value of log, the better it is to draft them early. 
 
+cbsproj %>% 
+  filter(Avg.Pos<20) %>% 
+  ggplot(aes(y=FantasyPoints, x=Log, label=Player))+
+  geom_text_repel()+
+  geom_smooth(method = "lm")
 
 #2021 stats
 
