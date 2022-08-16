@@ -8,6 +8,7 @@ library(modelsummary)
 library(ggrepel)
 library(rvest)
 library(stringr)
+library(naniar)
 
 
 #cbs projected QB stats
@@ -31,7 +32,7 @@ cbsQBproj <- cbsQBproj[-c(1),] %>%
   mutate(Pos ="QB") %>%
   mutate(FantasyPoints = readr::parse_number(Misc.1)) %>% 
   mutate(PassTD = readr::parse_number(Passing.4)) %>% 
-  mutate(Player = strtrim(Var.1, 10)) %>% 
+  mutate(Player = strtrim(Var.1, 15)) %>% 
   mutate(Turnovers = readr::parse_number(Passing.5)+ readr::parse_number(Misc)) %>% 
   mutate(PassAtt = readr::parse_number(Passing)) %>%
   mutate(RushTD =readr::parse_number(Rushing.3)) %>% 
@@ -77,7 +78,7 @@ cbsRBproj <- cbsRBproj[-c(1),] %>%
   mutate_all(~ gsub(x = ., pattern = "RB", "")) %>%
   mutate(Pos = "RB") %>%
   mutate(FantasyPoints = readr::parse_number(Misc.1)) %>%
-  mutate(Player = strtrim(Var.1, 10)) %>%
+  mutate(Player = strtrim(Var.1, 15)) %>%
   mutate(Turnovers = readr::parse_number(Misc)) %>% 
   mutate(RushTD =readr::parse_number(Rushing.3)) %>% 
   mutate(RushYD =readr::parse_number(Rushing.1)) %>%
@@ -115,7 +116,7 @@ cbsWRproj <- cbsWRproj %>%
 cbsWRproj <- cbsWRproj[-c(1),] %>% 
   mutate(Pos = "WR") %>%
   mutate(FantasyPoints = readr::parse_number(Misc.1)) %>%
-  mutate(Player = strtrim(Var.1, 10)) %>%
+  mutate(Player = strtrim(Var.1, 15)) %>%
   mutate(Turnovers = readr::parse_number(Misc)) %>% 
   mutate(RushTD =readr::parse_number(Rushing.3)) %>% 
   mutate(RushYD =readr::parse_number(Rushing.1)) %>%
@@ -144,7 +145,7 @@ cbsTEproj <- cbsTEproj %>%
 cbsTEproj <- cbsTEproj[-c(1),] %>% 
   mutate(Pos = "TE") %>%
   mutate(FantasyPoints = readr::parse_number(Misc.1)) %>%
-  mutate(Player = strtrim(Var.1, 10)) %>%
+  mutate(Player = strtrim(Var.1, 15)) %>%
   mutate(Turnovers = readr::parse_number(Misc)) %>% 
   mutate(RecTD = readr::parse_number(Receiving.5)) %>% 
   mutate(RecYD = readr::parse_number(Receiving.2)) %>% 
@@ -163,9 +164,27 @@ cbsTEproj <- cbsTEproj[-c(1:11)] %>%
 #join them together
 
 cbsproj <- rbind(cbsQBproj, cbsRBproj, cbsWRproj, cbsTEproj) %>%
-  write_rds("cbsproj.rds") %>% 
   glimpse()
 
+#average draft position
+
+AvgDraftPos <-read_html("https://www.cbssports.com/fantasy/football/draft/averages/") %>% 
+  html_nodes(".TableBase") %>% 
+  html_table(header = TRUE)
+
+AvgDraftPos <- AvgDraftPos %>% 
+  as.data.frame(AvgDraftPos$tibble) %>%
+  mutate_all(~ gsub(x = ., pattern = "DST", NA)) %>%
+  mutate(Player = strtrim(Player, 15)) %>%
+  mutate(Avg.Pos = readr::parse_number(Avg.Pos)) %>% 
+  glimpse()
+
+cbsproj <- cbsproj %>% 
+  left_join(AvgDraftPos) %>%
+  mutate(DraftToPointsRatio = (FantasyPoints)/((Avg.Pos))) %>%
+  mutate(Log = log(DraftToPointsRatio)) %>% 
+  write_rds("cbsproj.rds") %>%
+  glimpse()
 
 
 
