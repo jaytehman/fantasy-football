@@ -12,16 +12,20 @@ library(stringr)
 
 #cbs projected QB stats
 
-
+#get data from CBS website
 
 cbsQBproj <- read_html("https://www.cbssports.com/fantasy/football/stats/QB/2021/season/projections/nonppr/") %>% 
   html_nodes(".TableBase") %>% 
   html_table(header = TRUE)
 
+#make data frame
+
 cbsQBproj <- cbsQBproj %>% 
   as.data.frame(cbsQBproj$tibble) %>%
   mutate_all(~ gsub(x = ., pattern = "QB", "")) %>% 
   glimpse()
+
+#clean data
 
 cbsQBproj <- cbsQBproj[-c(1),] %>%
   mutate(Pos ="QB") %>%
@@ -38,9 +42,12 @@ cbsQBproj <- cbsQBproj[-c(1),] %>%
   mutate(Rec =0) %>% 
   glimpse()
 
+#select the clean data
+
 cbsQBproj <- cbsQBproj[-c(1:16)] %>%
   glimpse()
-  
+
+#fun graph  
 
 cbsQBproj %>%
   filter(PassAtt>175) %>% 
@@ -56,6 +63,7 @@ cbsQBproj %>%
 
 #CBS RB projections
 
+#rinse and repeat
 
 cbsRBproj <- read_html("https://www.cbssports.com/fantasy/football/stats/RB/2021/season/projections/nonppr/") %>% 
   html_nodes(".TableBase") %>% 
@@ -154,8 +162,11 @@ cbsTEproj <- cbsTEproj[-c(1:11)] %>%
 
 #join them together
 
-cbsproj <- rbind(cbsQBproj, cbsRBproj, cbsWRproj, cbsTEproj) %>% 
+cbsproj <- rbind(cbsQBproj, cbsRBproj, cbsWRproj, cbsTEproj) %>%
+  write_rds("cbsproj.rds") %>% 
   glimpse()
+
+
 
 
 #2021 stats
