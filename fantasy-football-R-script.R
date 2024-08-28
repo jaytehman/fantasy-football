@@ -15,7 +15,7 @@ library(naniar)
 
 #get data from CBS website
 
-cbsQBproj <- read_html("https://www.cbssports.com/fantasy/football/stats/QB/2021/season/projections/nonppr/") %>% 
+cbsQBproj <- read_html("https://www.cbssports.com/fantasy/football/stats/QB/2024/season/projections/ppr/") %>% 
   html_nodes(".TableBase") %>% 
   html_table(header = TRUE)
 
@@ -57,7 +57,7 @@ cbsQBproj %>%
   geom_smooth(method = "lm")+
   labs(caption ="Minimum of 175 Projected Passing Attempts, data from https://www.cbssports.com/fantasy/football/stats/QB/2021/season/projections/nonppr/",
        x="Turnovers",
-       title="2022 Projected Fantasy Points vs Turnovers")+
+       title="2024 Projected Fantasy Points vs Turnovers")+
   theme_minimal()
 
 
@@ -66,7 +66,7 @@ cbsQBproj %>%
 
 #rinse and repeat
 
-cbsRBproj <- read_html("https://www.cbssports.com/fantasy/football/stats/RB/2021/season/projections/nonppr/") %>% 
+cbsRBproj <- read_html("https://www.cbssports.com/fantasy/football/stats/RB/2024/season/projections/ppr/") %>% 
   html_nodes(".TableBase") %>% 
   html_table(header = TRUE)
 
@@ -104,7 +104,7 @@ cbsRBproj %>%
 
 #CBS WR Projections
 
-cbsWRproj <- read_html("https://www.cbssports.com/fantasy/football/stats/WR/2021/season/projections/nonppr/") %>% 
+cbsWRproj <- read_html("https://www.cbssports.com/fantasy/football/stats/WR/2024/season/projections/ppr/") %>% 
   html_nodes(".TableBase") %>% 
   html_table(header = TRUE)
 
@@ -133,7 +133,7 @@ cbsWRproj <- cbsWRproj[-c(1:15)] %>%
 
 #CBS TE Projections
 
-cbsTEproj <- read_html("https://www.cbssports.com/fantasy/football/stats/TE/2021/season/projections/nonppr/") %>% 
+cbsTEproj <- read_html("https://www.cbssports.com/fantasy/football/stats/TE/2024/season/projections/ppr/") %>% 
   html_nodes(".TableBase") %>% 
   html_table(header = TRUE)
 
@@ -181,47 +181,42 @@ AvgDraftPos <- AvgDraftPos %>%
 
 cbsproj <- cbsproj %>% 
   left_join(AvgDraftPos) %>%
-  mutate(DraftToPointsRatio = (FantasyPoints)/((Avg.Pos))) %>%
-  mutate(DraftToPointsRatio2 = (FantasyPoints)/((172-Avg.Pos))) %>%
-  mutate(ValFunct = (FantasyPoints)/((172-Avg.Pos)^2)) %>% 
-  mutate(Log = log(DraftToPointsRatio)) %>% 
-  write_rds("cbsproj.rds") %>%
+  mutate(real_points = FantasyPoints - (Rec * 0.5)) %>% #correct for half ppr
   glimpse()
 
-#if I'm correct, the higher the value of log, the better it is to draft them early. 
 
-cbsproj %>% 
-  filter(Avg.Pos<20) %>% 
-  ggplot(aes(y=FantasyPoints, x=Log, label=Player))+
-  geom_text_repel()+
-  geom_smooth(method = "lm")
-
-#2021 stats
-
-data21 <- read.csv("https://raw.githubusercontent.com/fantasydatapros/data/master/yearly/2021.csv")
-glimpse(data21)
-
-
-data21 <- data21 %>% 
-  mutate(turnovers = (FumblesLost+Int)) %>% 
+cbsproj_1 <- cbsproj %>% 
+  group_by(Pos) %>% 
+  mutate(POS_RANK = n() - rank(real_points)+1) %>%
+  mutate(player_name = gsub(x = Player, pattern = "\n", " ")) %>%
+  mutate(player_name = str_trim(player_name)) %>% 
+  ungroup() %>% 
   glimpse()
 
-data21QB <- data21 %>% 
-  filter(Pos=="QB")
 
-ols <- lm(FantasyPoints ~ Age + turnovers + PassingAtt + PassingYds, data=data21QB)
-summary(ols)
-
-
-data21 %>%
-  filter(Pos=="QB") %>%
-  filter(PassingAtt>175) %>%
-  ggplot(aes(x=turnovers, y=FantasyPoints, label=Player))+
-  geom_label_repel()+
-  geom_smooth(method = "lm")+
-  labs(caption ="Minimum of 175 Passing Attempts, data from https://raw.githubusercontent.com/fantasydatapros/data/master/yearly/2021.csv",
-       x="Turnovers",
-       title="Turnovers Cause Fantasy Points, or an example of a spurious effect")+
-  theme_minimal()
+points_over_replacement <- function(position, playername){
   
-ggsave("joke_graph.jpeg")
+  player_points <- cbsproj_1 %>%
+    filter(Pos == position) %>% 
+    filter(player_name==playername) %>% 
+    dplyr::select(real_points)
+  
+  spot <- player_points$real_points[[1]]
+  
+  temp <- cbsproj_1 %>% 
+    filter(Pos==position) %>% 
+    mutate(points_over_replacement= spot - real_points) %>% 
+    dplyr::select(player_name, points_over_replacement)
+  
+  return(temp)
+  
+}
+
+
+points_over_replacement(position = "QB", playername = "C. Stroud")
+
+points_over_replacement(position = "WR", playername = "T. Hill")
+
+
+check <- points_over_replacement(position = "WR", playername = "Q. Johnston")
+
